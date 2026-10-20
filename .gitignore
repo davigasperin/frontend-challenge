@@ -1,0 +1,28 @@
+# Dependências e caches
+node_modules/
+.tmp/
+dist/
+dist-ssr/
+*.local
+
+# Ignorados conforme solicitação
+.planning/
+README.md
+
+# Logs e ambiente
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

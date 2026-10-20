@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Cores exatas do Figma Kurio */
+  --color-kurio-bg: #140D0A;
+  --color-kurio-surface: #241612;
+  --color-kurio-border: #38220F;
+  --color-kurio-accent: #D28A4C;
+  --color-kurio-accent-hover: #E89B55;
+  --color-kurio-text-primary: #F5F1EB;
+  --color-kurio-text-secondary: #CFB28C;
+  --color-kurio-text-muted: #B39463;
+
+  /* Tokens mapeados para shadcn / base components */
+  --color-background: #140D0A;
+  --color-foreground: #F5F1EB;
+  --color-card: #241612;
+  --color-card-foreground: #F5F1EB;
+  --color-popover: #241612;
+  --color-popover-foreground: #F5F1EB;
+  --color-primary: #D28A4C;
+  --color-primary-foreground: #140D0A;
+  --color-secondary: #241612;
+  --color-secondary-foreground: #CFB28C;
+  --color-muted: #241612;
+  --color-muted-foreground: #CFB28C;
+  --color-accent: #38220F;
+  --color-accent-foreground: #F5F1EB;
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #38220F;
+  --color-input: #38220F;
+  --color-ring: #D28A4C;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.5rem;
+}
+
+/* Shimmer animation para Skeletons acessíveis */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(36, 22, 18, 0.8) 0%,
+    rgba(56, 34, 15, 0.9) 50%,
+    rgba(36, 22, 18, 0.8) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer {
+    animation: none;
+    background: #241612;
+  }
+}
+
+/* Scrollbar com tema Kurio */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #140D0A;
+}
+::-webkit-scrollbar-thumb {
+  background: #38220F;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D28A4C;
+}
