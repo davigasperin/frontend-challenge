@@ -488,6 +488,21 @@ function CheckoutView() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [checkoutError, setCheckoutError] = useState("")
 
+  // Guard de rota privada: se não estiver autenticado, orienta para login
+  if (!user) {
+    return (
+      <div className="min-h-[45vh] flex flex-col items-center justify-center gap-4 text-center border border-dashed border-kurio-border p-8">
+        <h2 className="text-xl font-bold text-kurio-accent">Identificação Necessária</h2>
+        <p className="text-xs text-kurio-text-secondary max-w-sm">
+          Você precisa estar conectado à sua conta Kurio para concluir a transação e receber os NFTs na sua carteira.
+        </p>
+        <Link to="/profile">
+          <Button variant="default">Conectar Conta</Button>
+        </Link>
+      </div>
+    )
+  }
+
   const handleConfirmOrder = async () => {
     if (!selectedWallet) {
       setCheckoutError("Selecione uma carteira para assinar a transação.")
@@ -632,55 +647,265 @@ const profileRoute = createRoute({
 })
 
 function ProfileView() {
+  const navigate = useNavigate()
   const user = mockDb.getCurrentUser()
+  const [tab, setTab] = useState<"info" | "security" | "collection">("info")
   const [name, setName] = useState(user?.name || "")
   const [bio, setBio] = useState(user?.bio || "")
+  const [ens, setEns] = useState(user?.ens || "")
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "")
   const [saved, setSaved] = useState(false)
+  const [profileError, setProfileError] = useState("")
+
+  // Senhas
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [passwordError, setPasswordError] = useState("")
 
   if (!user) {
     return (
-      <div className="min-h-[40vh] flex flex-col items-center justify-center gap-4 text-center">
-        <h2 className="text-xl font-bold text-kurio-text-primary">Conecte sua conta</h2>
-        <Button onClick={() => mockDb.login("contato@email.com")}>Entrar como Alexandre Kurio</Button>
+      <div className="min-h-[45vh] flex flex-col items-center justify-center gap-6 text-center border border-dashed border-kurio-border p-12">
+        <div className="flex flex-col gap-2 max-w-md">
+          <h2 className="text-2xl font-bold text-kurio-text-primary">Conecte sua conta</h2>
+          <p className="text-xs text-kurio-text-secondary">
+            Acesse seu perfil de colecionador para gerenciar carteiras, acompanhar pedidos e visualizar seus colecionáveis digitais.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            variant="default"
+            onClick={() => {
+              mockDb.login("alexandre@kurio.art")
+              navigate({ to: "/profile" })
+            }}
+          >
+            Entrar como Alexandre Kurio
+          </Button>
+          <Link to="/">
+            <Button variant="outline">Voltar ao Catálogo</Button>
+          </Link>
+        </div>
       </div>
     )
   }
 
-  const handleSave = () => {
-    mockDb.updateProfile(user.id, { name, bio })
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault()
+    setProfileError("")
+    if (name.trim().length < 3) {
+      setProfileError("O nome completo deve ter no mínimo 3 caracteres.")
+      return
+    }
+
+    mockDb.updateProfile(user.id, {
+      name: name.trim(),
+      bio: bio.trim(),
+      ens: ens.trim(),
+      avatarUrl: avatarUrl.trim() || user.avatarUrl,
+    })
     setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError("")
+    setPasswordSuccess(false)
+
+    if (currentPassword.length < 6) {
+      setPasswordError("Informe a senha atual com no mínimo 6 caracteres.")
+      return
+    }
+    if (newPassword.length < 6) {
+      setPasswordError("A nova senha deve possuir ao menos 6 caracteres.")
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("A confirmação de senha não confere.")
+      return
+    }
+
+    // Simula atualização segura
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
+    setPasswordSuccess(true)
+    setTimeout(() => setPasswordSuccess(false), 3000)
+  }
+
+  const handleLogout = () => {
+    mockDb.logout()
+    try {
+      localStorage.removeItem("kurio_auth_token")
+    } catch {}
+    navigate({ to: "/" })
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-6 flex flex-col gap-6">
-      <h1 className="text-2xl sm:text-3xl font-bold text-kurio-text-primary">Perfil do Colecionador</h1>
-
-      <div className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-4">
-        <div className="flex items-center gap-4 border-b border-kurio-border pb-4">
-          <img src={user.avatarUrl} alt={user.name} className="w-16 h-16 rounded-full object-cover border border-kurio-accent" />
-          <div className="flex flex-col">
-            <span className="font-bold text-kurio-text-primary">{user.name}</span>
+    <div className="max-w-4xl mx-auto py-6 flex flex-col gap-8">
+      {/* Cabeçalho Perfil */}
+      <div className="p-6 sm:p-8 bg-kurio-surface border border-kurio-border flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+          <img
+            src={user.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"}
+            alt={user.name}
+            className="w-20 h-20 rounded-full object-cover border-2 border-kurio-accent bg-black/40"
+          />
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <h1 className="text-xl sm:text-2xl font-bold text-kurio-text-primary">{user.name}</h1>
+              <Badge variant="outline" className="text-[10px] text-kurio-accent">Verificado</Badge>
+            </div>
+            <span className="text-xs text-kurio-accent font-bold">{user.ens || "@" + user.username}</span>
             <span className="text-xs text-kurio-text-muted">{user.email}</span>
-            <span className="text-xs text-kurio-accent">{user.ens}</span>
+            {user.bio && <p className="text-xs text-kurio-text-secondary mt-1 max-w-md">{user.bio}</p>}
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <label className="text-xs text-kurio-text-secondary flex flex-col gap-1">
-            Nome Completo:
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label className="text-xs text-kurio-text-secondary flex flex-col gap-1">
-            Biografia:
-            <Input value={bio} onChange={(e) => setBio(e.target.value)} />
-          </label>
-        </div>
-
-        <Button variant="default" onClick={handleSave} className="w-fit self-end text-xs">
-          {saved ? "Salvo com Sucesso!" : "Atualizar Perfil"}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleLogout}
+          className="text-xs text-red-400 hover:text-red-300 hover:border-red-500"
+        >
+          Desconectar
         </Button>
       </div>
+
+      {/* Navegação de Abas */}
+      <div className="flex items-center gap-2 border-b border-kurio-border pb-2 text-xs">
+        <button
+          onClick={() => setTab("info")}
+          className={`px-4 py-2 uppercase font-bold tracking-wider transition-colors border-b-2 ${
+            tab === "info"
+              ? "border-kurio-accent text-kurio-accent"
+              : "border-transparent text-kurio-text-secondary hover:text-kurio-text-primary"
+          }`}
+        >
+          Dados do Perfil
+        </button>
+        <button
+          onClick={() => setTab("security")}
+          className={`px-4 py-2 uppercase font-bold tracking-wider transition-colors border-b-2 ${
+            tab === "security"
+              ? "border-kurio-accent text-kurio-accent"
+              : "border-transparent text-kurio-text-secondary hover:text-kurio-text-primary"
+          }`}
+        >
+          Segurança & Senha
+        </button>
+        <button
+          onClick={() => setTab("collection")}
+          className={`px-4 py-2 uppercase font-bold tracking-wider transition-colors border-b-2 ${
+            tab === "collection"
+              ? "border-kurio-accent text-kurio-accent"
+              : "border-transparent text-kurio-text-secondary hover:text-kurio-text-primary"
+          }`}
+        >
+          Colecionáveis
+        </button>
+      </div>
+
+      {/* Conteúdo das Abas */}
+      {tab === "info" && (
+        <form onSubmit={handleSaveProfile} className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-4">
+          <h2 className="text-sm font-bold uppercase text-kurio-accent">Editar Informações Pessoais</h2>
+
+          {profileError && <p className="text-xs text-red-400 p-2 bg-red-950/40 border border-red-800">{profileError}</p>}
+          {saved && <p className="text-xs text-emerald-400 p-2 bg-emerald-950/40 border border-emerald-800">Perfil atualizado com sucesso!</p>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5">
+              Nome Completo:
+              <Input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5">
+              Domínio ENS (ex: nome.eth):
+              <Input value={ens} onChange={(e) => setEns(e.target.value)} placeholder="alexandre.eth" />
+            </label>
+            <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5 sm:col-span-2">
+              URL do Avatar:
+              <Input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://..." />
+            </label>
+            <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5 sm:col-span-2">
+              Biografia:
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={3}
+                className="w-full bg-kurio-bg border border-kurio-border p-3 text-xs text-kurio-text-primary focus:border-kurio-accent focus:outline-none"
+                placeholder="Conte sobre suas coleções e interesses no universo Web3..."
+              />
+            </label>
+          </div>
+
+          <Button type="submit" variant="default" className="w-fit self-end text-xs mt-2">
+            Salvar Alterações
+          </Button>
+        </form>
+      )}
+
+      {tab === "security" && (
+        <form onSubmit={handleChangePassword} className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-4 max-w-xl">
+          <h2 className="text-sm font-bold uppercase text-kurio-accent">Alteração de Senha</h2>
+
+          {passwordError && <p className="text-xs text-red-400 p-2 bg-red-950/40 border border-red-800">{passwordError}</p>}
+          {passwordSuccess && <p className="text-xs text-emerald-400 p-2 bg-emerald-950/40 border border-emerald-800">Senha alterada com sucesso!</p>}
+
+          <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5">
+            Senha Atual:
+            <Input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </label>
+          <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5">
+            Nova Senha:
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </label>
+          <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5">
+            Confirmar Nova Senha:
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </label>
+
+          <Button type="submit" variant="default" className="w-fit self-end text-xs mt-2">
+            Atualizar Senha
+          </Button>
+        </form>
+      )}
+
+      {tab === "collection" && (
+        <div className="flex flex-col gap-4">
+          <h2 className="text-sm font-bold uppercase text-kurio-accent">Meus Colecionáveis Adquiridos</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {mockDb.getNFTs().slice(0, 3).map((nft) => (
+              <div key={nft.id} className="bg-kurio-surface border border-kurio-border p-3 flex flex-col gap-2">
+                <img src={nft.image} alt={nft.name} className="aspect-square w-full object-cover bg-black/40" />
+                <span className="text-[10px] text-kurio-text-muted uppercase">{nft.collection}</span>
+                <span className="text-xs font-bold text-kurio-text-primary">{nft.name}</span>
+                <Badge variant="outline" className="text-[9px] w-fit">Edição 1/100</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -694,52 +919,228 @@ const walletsRoute = createRoute({
 
 function WalletsView() {
   const user = mockDb.getCurrentUser()
-  const wallets = user ? mockDb.getWallets(user.id) : []
+  const [wallets, setWallets] = useState<any[]>(user ? mockDb.getWallets(user.id) : [])
   const [name, setName] = useState("")
   const [address, setAddress] = useState("")
-  const [created, setCreated] = useState(false)
+  const [network, setNetwork] = useState<"Ethereum" | "Polygon" | "Arbitrum">("Ethereum")
+  const [walletError, setWalletError] = useState("")
+  const [successMsg, setSuccessMsg] = useState("")
+
+  const refreshWallets = () => {
+    if (user) {
+      setWallets([...mockDb.getWallets(user.id)])
+    }
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-[45vh] flex flex-col items-center justify-center gap-4 text-center border border-dashed border-kurio-border p-12">
+        <h2 className="text-xl font-bold text-kurio-text-primary">Conecte sua conta</h2>
+        <p className="text-xs text-kurio-text-secondary max-w-sm">
+          Acesse para visualizar e associar suas carteiras Ethereum às compras no marketplace.
+        </p>
+        <Link to="/profile">
+          <Button variant="default">Acessar Conta</Button>
+        </Link>
+      </div>
+    )
+  }
 
   const handleAddWallet = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !address.startsWith("0x")) return
+    setWalletError("")
+    setSuccessMsg("")
+
+    const cleanAddress = address.trim()
+    if (!cleanAddress.startsWith("0x") || cleanAddress.length !== 42) {
+      setWalletError("Endereço Ethereum inválido. Deve começar com 0x e conter 42 caracteres.")
+      return
+    }
+
     mockDb.saveWallet(user.id, {
-      name: name || "Nova Carteira",
-      address,
+      name: name.trim() || "Carteira Principal",
+      address: cleanAddress,
+      network,
+      isPrimary: wallets.length === 0,
+    })
+
+    setName("")
+    setAddress("")
+    setSuccessMsg("Carteira adicionada com sucesso!")
+    refreshWallets()
+    setTimeout(() => setSuccessMsg(""), 2500)
+  }
+
+  const handleSimulateWeb3Connect = (providerName: string) => {
+    const randomHex = Array.from({ length: 40 }, () =>
+      Math.floor(Math.random() * 16).toString(16)
+    ).join("")
+    const simulatedAddr = `0x${randomHex}`
+
+    mockDb.saveWallet(user.id, {
+      name: `${providerName} Connect`,
+      address: simulatedAddr,
       network: "Ethereum",
       isPrimary: wallets.length === 0,
     })
-    setName("")
-    setAddress("")
-    setCreated(true)
-    setTimeout(() => setCreated(false), 2000)
+
+    setSuccessMsg(`${providerName} conectado com sucesso!`)
+    refreshWallets()
+    setTimeout(() => setSuccessMsg(""), 2500)
+  }
+
+  const handleSetPrimary = (walletId: string) => {
+    mockDb.setPrimaryWallet(user.id, walletId)
+    refreshWallets()
+  }
+
+  const handleDeleteWallet = (walletId: string) => {
+    mockDb.deleteWallet(user.id, walletId)
+    refreshWallets()
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-6 flex flex-col gap-6">
-      <h1 className="text-2xl sm:text-3xl font-bold text-kurio-text-primary">Minhas Carteiras</h1>
-
-      <div className="flex flex-col gap-3">
-        {wallets.map((w) => (
-          <div key={w.id} className="p-4 bg-kurio-surface border border-kurio-border flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="font-bold text-xs text-kurio-text-primary">{w.name}</span>
-              <span className="text-[11px] text-kurio-text-muted">{w.address}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={w.isPrimary ? "default" : "secondary"}>
-                {w.isPrimary ? "Principal" : w.network}
-              </Badge>
-            </div>
-          </div>
-        ))}
+    <div className="max-w-3xl mx-auto py-6 flex flex-col gap-8">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-kurio-text-primary">Minhas Carteiras</h1>
+        <p className="text-xs text-kurio-text-secondary mt-1">
+          Gerencie suas carteiras para pagamentos, recebimento de royalties e assinatura de transações.
+        </p>
       </div>
 
-      <form onSubmit={handleAddWallet} className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-3">
-        <h2 className="text-sm font-bold uppercase text-kurio-accent">Adicionar Nova Carteira</h2>
-        <Input placeholder="Apelido da Carteira (ex: Vault)" value={name} onChange={(e) => setName(e.target.value)} />
-        <Input placeholder="Endereço 0x..." value={address} onChange={(e) => setAddress(e.target.value)} required />
-        <Button type="submit" variant="default" className="w-fit self-end text-xs">
-          {created ? "Carteira Adicionada!" : "Salvar Carteira"}
+      {successMsg && (
+        <p className="text-xs text-emerald-400 p-3 bg-emerald-950/40 border border-emerald-800">
+          {successMsg}
+        </p>
+      )}
+
+      {/* Lista de Carteiras Cadastradas */}
+      <div className="flex flex-col gap-4">
+        <h2 className="text-sm font-bold uppercase text-kurio-accent">Carteiras Conectadas ({wallets.length})</h2>
+        {wallets.length === 0 ? (
+          <p className="text-xs text-kurio-text-muted p-4 border border-dashed border-kurio-border">
+            Nenhuma carteira conectada. Adicione uma carteira abaixo.
+          </p>
+        ) : (
+          wallets.map((w) => (
+            <div
+              key={w.id}
+              className={`p-4 bg-kurio-surface border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors ${
+                w.isPrimary ? "border-kurio-accent/70 bg-kurio-accent/5" : "border-kurio-border"
+              }`}
+            >
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-kurio-text-primary">{w.name}</span>
+                  <Badge variant={w.isPrimary ? "default" : "outline"} className="text-[10px]">
+                    {w.isPrimary ? "Carteira Principal" : "Secundária"}
+                  </Badge>
+                  <span className="text-[10px] text-kurio-text-muted">({w.network})</span>
+                </div>
+                <span className="text-xs text-kurio-accent font-mono break-all">{w.address}</span>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {!w.isPrimary && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleSetPrimary(w.id)}
+                    className="text-xs h-8"
+                  >
+                    Tornar Principal
+                  </Button>
+                )}
+                {wallets.length > 1 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteWallet(w.id)}
+                    className="text-xs h-8 text-red-400 hover:text-red-300"
+                  >
+                    Remover
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Conexão Rápida com Web3 Providers */}
+      <div className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-4">
+        <h2 className="text-sm font-bold uppercase text-kurio-accent">Conexão Rápida (Provedores Web3)</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSimulateWeb3Connect("MetaMask")}
+            className="flex items-center justify-center gap-2 text-xs"
+          >
+            🦊 MetaMask
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSimulateWeb3Connect("Coinbase")}
+            className="flex items-center justify-center gap-2 text-xs"
+          >
+            🔵 Coinbase Wallet
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSimulateWeb3Connect("WalletConnect")}
+            className="flex items-center justify-center gap-2 text-xs"
+          >
+            🔗 WalletConnect
+          </Button>
+        </div>
+      </div>
+
+      {/* Formulário de Adicionar Manualmente */}
+      <form onSubmit={handleAddWallet} className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-4">
+        <h2 className="text-sm font-bold uppercase text-kurio-accent">Adicionar Carteira Manualmente</h2>
+
+        {walletError && (
+          <p className="text-xs text-red-400 p-2 bg-red-950/40 border border-red-800">{walletError}</p>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5">
+            Apelido da Carteira:
+            <Input
+              placeholder="Ex: Minha Ledger / Cold Wallet"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </label>
+          <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5">
+            Rede:
+            <select
+              value={network}
+              onChange={(e) => setNetwork(e.target.value as any)}
+              className="h-10 bg-kurio-bg border border-kurio-border px-3 text-xs text-kurio-text-primary focus:border-kurio-accent focus:outline-none"
+            >
+              <option value="Ethereum">Ethereum (Mainnet/Sepolia)</option>
+              <option value="Polygon">Polygon POS</option>
+              <option value="Arbitrum">Arbitrum One</option>
+            </select>
+          </label>
+          <label className="text-xs text-kurio-text-secondary flex flex-col gap-1.5 sm:col-span-2">
+            Endereço da Carteira (0x...):
+            <Input
+              placeholder="0x1234567890abcdef1234567890abcdef12345678"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              required
+            />
+          </label>
+        </div>
+
+        <Button type="submit" variant="default" className="w-fit self-end text-xs mt-2">
+          Salvar Carteira
         </Button>
       </form>
     </div>

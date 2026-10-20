@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge"
 import { ShoppingBag, User as UserIcon, Search, Heart } from "lucide-react"
 import { mockDb } from "@/mocks/db"
 import { useState, useEffect } from "react"
+import { AuthModal } from "@/components/common/AuthModal"
 
 export function Header() {
   const routerState = useRouterState()
   const navigate = useNavigate()
   const [cartCount, setCartCount] = useState(0)
   const [currentUser, setCurrentUser] = useState(mockDb.getCurrentUser())
+  const [authOpen, setAuthOpen] = useState(false)
 
   // Atualiza contadores locais
   useEffect(() => {
@@ -98,14 +100,17 @@ export function Header() {
               <span>{currentUser.name.split(" ")[0]}</span>
             </Link>
           ) : (
-            <Button
-              size="sm"
-              variant="default"
-              onClick={() => navigate({ to: "/profile" })}
-              className="text-xs"
-            >
-              Conectar
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => setAuthOpen(true)}
+                className="text-xs"
+              >
+                Conectar
+              </Button>
+              <AuthModal open={authOpen} setOpen={setAuthOpen} />
+            </>
           )}
         </div>
       </div>

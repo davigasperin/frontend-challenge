@@ -204,6 +204,36 @@ class MockDatabase {
     return newWallet
   }
 
+  public deleteWallet(userId: string, walletId: string): boolean {
+    if (!this.state.wallets[userId]) return false
+    const list = this.state.wallets[userId]
+    const idx = list.findIndex(w => w.id === walletId)
+    if (idx === -1) return false
+    const wasPrimary = list[idx].isPrimary
+    list.splice(idx, 1)
+    if (wasPrimary && list.length > 0) {
+      list[0].isPrimary = true
+    }
+    this.persist()
+    return true
+  }
+
+  public setPrimaryWallet(userId: string, walletId: string): boolean {
+    if (!this.state.wallets[userId]) return false
+    const list = this.state.wallets[userId]
+    let found = false
+    list.forEach(w => {
+      if (w.id === walletId) {
+        w.isPrimary = true
+        found = true
+      } else {
+        w.isPrimary = false
+      }
+    })
+    if (found) this.persist()
+    return found
+  }
+
   // --- NFTs & Favorites ---
   public getNFTs(): NFTItem[] {
     return this.state.nfts
