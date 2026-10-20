@@ -93,6 +93,10 @@ class MockDatabase {
     }
   }
 
+  public persistState(): void {
+    this.persist()
+  }
+
   private persist() {
     try {
       if (typeof window !== "undefined") {

@@ -1,22 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import { Home, Search, ShoppingBag, Wallet, User } from "lucide-react"
 import { mockDb } from "@/mocks/db"
-import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
+import { useCartQuery } from "@/hooks/useCart"
 
 export function MobileTabBar() {
   const routerState = useRouterState()
-  const [cartCount, setCartCount] = useState(0)
+  const { data: cartData } = useCartQuery()
 
-  useEffect(() => {
-    const update = () => {
-      const cart = mockDb.getCart()
-      setCartCount(cart.reduce((acc, item) => acc + item.quantity, 0))
-    }
-    update()
-    const timer = setInterval(update, 1000)
-    return () => clearInterval(timer)
-  }, [])
+  const cartCount = cartData?.quote?.itemsCount ?? mockDb.getCart().reduce((acc, item) => acc + item.quantity, 0)
 
   const currentPath = routerState.location.pathname
 

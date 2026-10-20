@@ -6,20 +6,20 @@ import { ShoppingBag, User as UserIcon, Search, Heart } from "lucide-react"
 import { mockDb } from "@/mocks/db"
 import { useState, useEffect } from "react"
 import { AuthModal } from "@/components/common/AuthModal"
+import { useCartQuery } from "@/hooks/useCart"
 
 export function Header() {
   const routerState = useRouterState()
   const navigate = useNavigate()
-  const [cartCount, setCartCount] = useState(0)
+  const { data: cartData } = useCartQuery()
   const [currentUser, setCurrentUser] = useState(mockDb.getCurrentUser())
   const [authOpen, setAuthOpen] = useState(false)
 
-  // Atualiza contadores locais
+  const cartCount = cartData?.quote?.itemsCount ?? mockDb.getCart().reduce((acc, item) => acc + item.quantity, 0)
+
+  // Atualiza estado de usuário
   useEffect(() => {
     const updateHeaderState = () => {
-      const cart = mockDb.getCart()
-      const total = cart.reduce((acc, item) => acc + item.quantity, 0)
-      setCartCount(total)
       setCurrentUser(mockDb.getCurrentUser())
     }
 

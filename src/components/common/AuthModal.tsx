@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,7 @@ export function AuthModal({
   const [mode, setMode] = useState<"login" | "register">("login")
   const [authError, setAuthError] = useState("")
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const loginForm = useForm<LoginFormData>({
     resolver: createZodResolver(loginSchema),
@@ -74,6 +76,8 @@ export function AuthModal({
       setAuthError("E-mail não encontrado ou senha incorreta.")
       return
     }
+    // Preserva o carrinho do visitante notificando queries ativas
+    queryClient.invalidateQueries({ queryKey: ["cart"] })
     setOpen(false)
     navigate({ to: "/profile" })
   }

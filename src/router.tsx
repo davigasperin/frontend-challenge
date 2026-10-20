@@ -21,6 +21,8 @@ import { Link } from "@tanstack/react-router"
 import { z } from "zod"
 import { MobileTabBar } from "@/components/common/MobileTabBar"
 import { useCatalogueQuery, useNFTDetailQuery } from "@/hooks/useNFTs"
+import { useCartQuery, useAddToCart, useUpdateCartQuantity, useRemoveFromCart, useApplyCoupon, useRemoveCoupon } from "@/hooks/useCart"
+import { realtimeClient, NFTUpdatedPayload } from "@/lib/realtime"
 import { FavoriteButton } from "@/components/nft/FavoriteButton"
 import { NFTGridSkeleton, NFTDetailSkeleton } from "@/components/nft/NFTSkeletons"
 import { PromosAndBlogSection } from "@/components/home/PromosAndBlogSection"
@@ -272,6 +274,7 @@ function NFTDetailView() {
   const [added, setAdded] = useState(false)
 
   const { data: nft, isLoading, isError, refetch } = useNFTDetailQuery(id)
+  const addToCartMutation = useAddToCart()
 
   if (isLoading) {
     return <NFTDetailSkeleton />
@@ -291,7 +294,7 @@ function NFTDetailView() {
   }
 
   const handleAddToCart = () => {
-    mockDb.addToCart({
+    addToCartMutation.mutate({
       nftId: nft.id,
       editionNumber: 1,
       quantity: 1,
@@ -386,35 +389,101 @@ const cartRoute = createRoute({
 })
 
 function CartView() {
-  const [cart, setCart] = useState(mockDb.getCart())
-  const [quote, setQuote] = useState(mockDb.calculateQuote())
+  const { data: cartData, isLoading, isError, refetch } = useCartQuery()
+  const updateQuantityMutation = useUpdateCartQuantity()
+  const removeItemMutation = useRemoveFromCart()
+  const applyCouponMutation = useApplyCoupon()
+  const removeCouponMutation = useRemoveCoupon()
+
   const [couponInput, setCouponInput] = useState("")
   const [couponError, setCouponError] = useState("")
+  const [realtimeAlert, setRealtimeAlert] = useState<string | null>(null)
 
-  const refreshCart = () => {
-    setCart([...mockDb.getCart()])
-    setQuote(mockDb.calculateQuote())
-  }
+  const cart = cartData?.items ?? []
+  const quote = cartData?.quote
+
+  // Tempo real: escuta eventos de atualização de NFT (preço/estoque) e reflete no carrinho
+  useEffect(() => {
+    const unsubscribe = realtimeClient.on<NFTUpdatedPayload>("nft.updated", (payload) => {
+      const inCart = mockDb.getCart().find((c) => c.nftId === payload.nftId)
+      if (inCart) {
+        refetch()
+        setRealtimeAlert(
+          `Preço ou estoque de "${inCart.name}" foi atualizado para ${payload.priceEth} ETH (${payload.stockAvailable} em estoque).`
+        )
+        setTimeout(() => setRealtimeAlert(null), 6000)
+      }
+    })
+    return unsubscribe
+  }, [refetch])
 
   const handleApplyCoupon = () => {
     setCouponError("")
-    const res = mockDb.applyCoupon(couponInput)
-    if (!res.success) {
-      setCouponError(res.error || "Cupom inválido.")
-    } else {
-      setCouponInput("")
-      refreshCart()
-    }
+    applyCouponMutation.mutate(couponInput, {
+      onSuccess: () => {
+        setCouponInput("")
+      },
+      onError: (err: any) => {
+        setCouponError(err?.message || "Cupom inválido.")
+      },
+    })
   }
 
   const handleRemoveCoupon = () => {
-    mockDb.removeCoupon()
-    refreshCart()
+    removeCouponMutation.mutate()
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-8 py-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-kurio-text-primary">Carrinho de Compras</h1>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 p-4 bg-kurio-surface border border-kurio-border">
+                <Skeleton className="w-20 h-20" />
+                <div className="flex-1 flex flex-col gap-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="h-8 w-24" />
+              </div>
+            ))}
+          </div>
+          <div className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-4 h-fit">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isError || !cartData || !quote) {
+    return (
+      <div className="flex flex-col gap-8 py-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-kurio-text-primary">Carrinho de Compras</h1>
+        <div className="min-h-[40vh] flex flex-col items-center justify-center gap-4 text-center border border-dashed border-kurio-border p-12">
+          <p className="text-kurio-text-secondary">Erro ao carregar o carrinho.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Tentar Novamente</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="flex flex-col gap-8 py-4">
       <h1 className="text-2xl sm:text-3xl font-bold text-kurio-text-primary">Carrinho de Compras</h1>
+
+      {realtimeAlert && (
+        <div className="p-3 bg-amber-950/40 border border-amber-500/40 text-xs text-amber-400" role="status">
+          {realtimeAlert}
+        </div>
+      )}
 
       {cart.length === 0 ? (
         <div className="min-h-[40vh] flex flex-col items-center justify-center gap-4 text-center border border-dashed border-kurio-border p-12">
@@ -441,10 +510,14 @@ function CartView() {
                     size="sm"
                     variant="outline"
                     className="h-8 w-8 p-0"
-                    onClick={() => {
-                      mockDb.updateCartItemQuantity(item.nftId, item.editionNumber, item.quantity - 1)
-                      refreshCart()
-                    }}
+                    disabled={updateQuantityMutation.isPending}
+                    onClick={() =>
+                      updateQuantityMutation.mutate({
+                        nftId: item.nftId,
+                        editionNumber: item.editionNumber,
+                        quantity: item.quantity - 1,
+                      })
+                    }
                   >
                     -
                   </Button>
@@ -453,10 +526,14 @@ function CartView() {
                     size="sm"
                     variant="outline"
                     className="h-8 w-8 p-0"
-                    onClick={() => {
-                      mockDb.updateCartItemQuantity(item.nftId, item.editionNumber, item.quantity + 1)
-                      refreshCart()
-                    }}
+                    disabled={updateQuantityMutation.isPending}
+                    onClick={() =>
+                      updateQuantityMutation.mutate({
+                        nftId: item.nftId,
+                        editionNumber: item.editionNumber,
+                        quantity: item.quantity + 1,
+                      })
+                    }
                   >
                     +
                   </Button>
@@ -464,10 +541,13 @@ function CartView() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => {
-                    mockDb.removeFromCart(item.nftId, item.editionNumber)
-                    refreshCart()
-                  }}
+                  disabled={removeItemMutation.isPending}
+                  onClick={() =>
+                    removeItemMutation.mutate({
+                      nftId: item.nftId,
+                      editionNumber: item.editionNumber,
+                    })
+                  }
                   className="text-red-400 hover:text-red-300 text-xs"
                 >
                   Remover

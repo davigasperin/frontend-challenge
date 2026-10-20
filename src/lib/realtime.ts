@@ -83,6 +83,14 @@ class RealtimeClient {
       stockAvailable: payload.stockAvailable
     })
 
+    // Atualiza o preço correspondente nos itens do carrinho, se estiver presente
+    const cart = mockDb.getCart()
+    const itemInCart = cart.find(item => item.nftId === payload.nftId)
+    if (itemInCart && itemInCart.priceEth !== payload.priceEth) {
+      itemInCart.priceEth = payload.priceEth
+      mockDb.persistState?.()
+    }
+
     this.dispatch("nft.updated", payload)
   }
 
