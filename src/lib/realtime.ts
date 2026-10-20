@@ -147,8 +147,6 @@ class RealtimeClient {
     }
     this.handleOrderUpdated(payload)
   }
-    this.handleOrderUpdated(payload)
-  }
 }
 
 export const realtimeClient = new RealtimeClient()

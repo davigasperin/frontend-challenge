@@ -1,44 +1,31 @@
 import { http, HttpResponse, delay, ws } from "msw"
-import { SocketIo } from "@mswjs/socket.io-binding"
+import { toSocketIo } from "@mswjs/socket.io-binding"
 import { mockDb } from "./db"
 
-// Conexão WebSocket interceptada com protocolo Socket.IO para eventos em tempo real
+// Conexão WebSocket interceptada com binding Socket.IO oficial do MSW
 export const socketIoMock = ws.link(
   typeof window !== "undefined"
     ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`
-    : "ws://localhost:3000",
-  { protocol: new SocketIo() }
+    : "ws://localhost:3000"
 )
 
-const activeClients = new Set<any>()
+const activeSocketIoClients = new Set<any>()
 
-socketIoMock.addEventListener("connection", ({ client }) => {
-  activeClients.add(client)
+socketIoMock.addEventListener("connection", (connection) => {
+  const { client } = toSocketIo(connection)
+  activeSocketIoClients.add(client)
 
-  client.addEventListener("close", () => {
-    activeClients.delete(client)
-  })
-
-  client.addEventListener("message", (event) => {
-    try {
-      const parsed = JSON.parse(event.data)
-      const [eventName] = parsed
-      if (eventName === "ping") {
-        client.send(JSON.stringify(["pong", Date.now()]))
-      }
-    } catch {
-      // Ignora frames não-JSON
-    }
+  client.on("ping", () => {
+    client.emit("pong", Date.now())
   })
 })
 
 export function broadcastSocketIoEvent(event: string, payload: unknown) {
-  const message = JSON.stringify([event, payload])
-  activeClients.forEach((client) => {
+  activeSocketIoClients.forEach((client) => {
     try {
-      client.send(message)
+      client.emit(event, payload)
     } catch {
-      activeClients.delete(client)
+      activeSocketIoClients.delete(client)
     }
   })
 }
