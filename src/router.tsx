@@ -19,16 +19,22 @@ import { formatEth } from "@/lib/utils"
 import { useState, useEffect } from "react"
 import { Link } from "@tanstack/react-router"
 import { z } from "zod"
+import { MobileTabBar } from "@/components/common/MobileTabBar"
+import { useCatalogueQuery, useNFTDetailQuery } from "@/hooks/useNFTs"
+import { FavoriteButton } from "@/components/nft/FavoriteButton"
+import { NFTGridSkeleton, NFTDetailSkeleton } from "@/components/nft/NFTSkeletons"
+import { PromosAndBlogSection } from "@/components/home/PromosAndBlogSection"
 
 // 1. Root Route com Layout Global
 const rootRoute = createRootRoute({
   component: () => (
-    <div className="min-h-screen flex flex-col bg-kurio-bg text-kurio-text-primary font-mono selection:bg-kurio-accent selection:text-kurio-bg">
+    <div className="min-h-screen flex flex-col bg-kurio-bg text-kurio-text-primary font-mono selection:bg-kurio-accent selection:text-kurio-bg pb-16 md:pb-0">
       <Header />
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-8">
         <Outlet />
       </main>
       <Footer />
+      <MobileTabBar />
       <ScenarioPanel />
     </div>
   ),
@@ -63,7 +69,6 @@ function CatalogueView() {
   const searchParams = useSearch({ from: "/" })
   const navigate = useNavigate({ from: "/" })
   const [searchTerm, setSearchTerm] = useState(searchParams.search || "")
-  const nfts = mockDb.getNFTs()
 
   // Sincroniza busca com debounce leve
   useEffect(() => {
@@ -77,17 +82,17 @@ function CatalogueView() {
     return () => clearTimeout(handler)
   }, [searchTerm, searchParams.search, navigate])
 
-  const filteredNFTs = nfts.filter((nft) => {
-    const matchesSearch =
-      !searchParams.search ||
-      nft.name.toLowerCase().includes(searchParams.search.toLowerCase()) ||
-      nft.collection.toLowerCase().includes(searchParams.search.toLowerCase())
-    const matchesCategory = searchParams.category === "all" || nft.category === searchParams.category
-    return matchesSearch && matchesCategory
+  const { data, isLoading, isError, refetch } = useCatalogueQuery({
+    search: searchParams.search || "",
+    category: searchParams.category || "all",
+    sort: searchParams.sort || "recent",
+    page: searchParams.page || 1,
   })
 
+  const nfts = data?.items || []
+
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-12">
       {/* Hero Section */}
       <section className="flex flex-col md:flex-row items-center justify-between gap-8 py-6 border-b border-kurio-border">
         <div className="flex flex-col gap-4 max-w-xl">
@@ -109,7 +114,7 @@ function CatalogueView() {
         </div>
 
         {/* Card Destaque Hero */}
-        <div className="w-full md:w-96 bg-kurio-surface border border-kurio-border p-4 flex flex-col gap-3 shadow-2xl">
+        <div className="w-full md:w-96 bg-kurio-surface border border-kurio-border p-4 flex flex-col gap-3 shadow-2xl relative">
           <div className="relative aspect-square w-full overflow-hidden bg-black/40">
             <img
               src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&auto=format&fit=crop&q=80"
@@ -119,6 +124,9 @@ function CatalogueView() {
             <span className="absolute top-2 right-2 bg-kurio-bg/90 border border-kurio-border px-2 py-1 text-[10px] text-kurio-accent">
               Destaque
             </span>
+            <div className="absolute top-2 left-2">
+              <FavoriteButton nftId="nft-1" />
+            </div>
           </div>
           <div className="flex items-center justify-between pt-2">
             <div>
@@ -133,8 +141,8 @@ function CatalogueView() {
         </div>
       </section>
 
-      {/* Controles de Filtros e Busca */}
-      <section className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+      {/* Controles de Filtros, Abas e Ordenação */}
+      <section className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         <div className="relative max-w-md w-full">
           <Input
             placeholder="Buscar por nome ou coleção..."
@@ -144,62 +152,109 @@ function CatalogueView() {
           />
         </div>
 
-        {/* Categorias (Abas) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {(["all", "trending", "new"] as const).map((cat) => (
-            <Button
-              key={cat}
-              size="sm"
-              variant={searchParams.category === cat ? "default" : "secondary"}
-              onClick={() => navigate({ search: (prev) => ({ ...prev, category: cat, page: 1 }) })}
-              className="text-xs capitalize"
-            >
-              {cat === "all" ? "Todos" : cat === "trending" ? "Em Alta" : "Recentes"}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Categorias (Abas) */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+            {(["all", "trending", "new"] as const).map((cat) => (
+              <Button
+                key={cat}
+                size="sm"
+                variant={searchParams.category === cat ? "default" : "secondary"}
+                onClick={() => navigate({ search: (prev) => ({ ...prev, category: cat, page: 1 }) })}
+                className="text-xs capitalize"
+              >
+                {cat === "all" ? "Todos" : cat === "trending" ? "Em Alta" : "Recentes"}
+              </Button>
+            ))}
+          </div>
+
+          {/* Ordenação */}
+          <select
+            value={searchParams.sort || "recent"}
+            onChange={(e) =>
+              navigate({ search: (prev) => ({ ...prev, sort: e.target.value as any, page: 1 }) })
+            }
+            aria-label="Ordenar NFTs"
+            className="h-9 bg-kurio-surface border border-kurio-border px-3 text-xs text-kurio-text-primary focus:border-kurio-accent focus:outline-none"
+          >
+            <option value="recent">Mais Recentes</option>
+            <option value="price-asc">Menor Preço</option>
+            <option value="price-desc">Maior Preço</option>
+          </select>
         </div>
       </section>
 
-      {/* Grid de NFTs */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredNFTs.map((nft) => (
-          <Link
-            key={nft.id}
-            to="/nft/$id"
-            params={{ id: nft.id }}
-            className="group bg-kurio-surface border border-kurio-border hover:border-kurio-accent transition-all duration-300 p-4 flex flex-col gap-4"
+      {/* Grid de NFTs com Shimmer ou Tratamento de Erro */}
+      {isLoading ? (
+        <NFTGridSkeleton count={6} />
+      ) : isError ? (
+        <div className="p-8 text-center border border-red-900 bg-red-950/20 flex flex-col items-center gap-3">
+          <p className="text-sm text-red-400 font-bold">Falha ao carregar catálogo de NFTs.</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            Tentar Novamente
+          </Button>
+        </div>
+      ) : nfts.length === 0 ? (
+        <div className="p-12 text-center border border-dashed border-kurio-border flex flex-col items-center gap-3">
+          <p className="text-sm text-kurio-text-muted">Nenhum NFT encontrado para o filtro atual.</p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setSearchTerm("")
+              navigate({ search: () => ({ category: "all", sort: "recent", page: 1, search: "" }) })
+            }}
           >
-            <div className="relative aspect-square w-full overflow-hidden bg-black/40">
-              <img
-                src={nft.image}
-                alt={nft.name}
-                loading="lazy"
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <span className="absolute bottom-2 left-2 bg-kurio-bg/90 border border-kurio-border px-2 py-0.5 text-[10px] text-kurio-text-secondary">
-                {nft.tokenId}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] text-kurio-text-muted uppercase tracking-wider">{nft.collection}</span>
-              <h3 className="text-base font-bold text-kurio-text-primary group-hover:text-kurio-accent transition-colors">
-                {nft.name}
-              </h3>
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-kurio-border/60 mt-auto">
-              <div>
-                <p className="text-[10px] uppercase text-kurio-text-muted">Preço</p>
-                <p className="text-sm font-bold text-kurio-accent">{formatEth(nft.priceEth)}</p>
+            Limpar Filtros
+          </Button>
+        </div>
+      ) : (
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {nfts.map((nft) => (
+            <Link
+              key={nft.id}
+              to="/nft/$id"
+              params={{ id: nft.id }}
+              className="group bg-kurio-surface border border-kurio-border hover:border-kurio-accent transition-all duration-300 p-4 flex flex-col gap-4 relative"
+            >
+              <div className="relative aspect-square w-full overflow-hidden bg-black/40">
+                <img
+                  src={nft.image}
+                  alt={nft.name}
+                  loading="lazy"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <span className="absolute bottom-2 left-2 bg-kurio-bg/90 border border-kurio-border px-2 py-0.5 text-[10px] text-kurio-text-secondary">
+                  {nft.tokenId}
+                </span>
+                <div className="absolute top-2 right-2 z-10">
+                  <FavoriteButton nftId={nft.id} />
+                </div>
               </div>
-              <Button size="sm" variant="secondary" className="text-xs group-hover:bg-kurio-accent group-hover:text-kurio-bg">
-                Ver Detalhes
-              </Button>
-            </div>
-          </Link>
-        ))}
-      </section>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] text-kurio-text-muted uppercase tracking-wider">{nft.collection}</span>
+                <h3 className="text-base font-bold text-kurio-text-primary group-hover:text-kurio-accent transition-colors">
+                  {nft.name}
+                </h3>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-kurio-border/60 mt-auto">
+                <div>
+                  <p className="text-[10px] uppercase text-kurio-text-muted">Preço</p>
+                  <p className="text-sm font-bold text-kurio-accent">{formatEth(nft.priceEth)}</p>
+                </div>
+                <Button size="sm" variant="secondary" className="text-xs group-hover:bg-kurio-accent group-hover:text-kurio-bg">
+                  Ver Detalhes
+                </Button>
+              </div>
+            </Link>
+          ))}
+        </section>
+      )}
+
+      {/* Seção Promos & Blog */}
+      <PromosAndBlogSection />
     </div>
   )
 }
@@ -213,15 +268,24 @@ const nftDetailRoute = createRoute({
 
 function NFTDetailView() {
   const { id } = useParams({ from: "/nft/$id" })
-  const nft = mockDb.getNFTById(id)
   const navigate = useNavigate()
   const [added, setAdded] = useState(false)
 
-  if (!nft) {
+  const { data: nft, isLoading, isError, refetch } = useNFTDetailQuery(id)
+
+  if (isLoading) {
+    return <NFTDetailSkeleton />
+  }
+
+  if (isError || !nft) {
     return (
       <div className="min-h-[40vh] flex flex-col items-center justify-center gap-4 text-center">
         <h2 className="text-2xl font-bold text-kurio-accent">NFT Não Encontrado</h2>
-        <Link to="/"><Button variant="default">Voltar ao Catálogo</Button></Link>
+        <p className="text-xs text-kurio-text-secondary">O item solicitado não existe ou ocorreu um erro de rede.</p>
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Tentar Novamente</Button>
+          <Link to="/"><Button variant="default" size="sm">Voltar ao Catálogo</Button></Link>
+        </div>
       </div>
     )
   }
@@ -242,10 +306,13 @@ function NFTDetailView() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 py-6">
-      {/* Imagem do NFT */}
-      <div className="bg-kurio-surface border border-kurio-border p-4 flex flex-col gap-4">
-        <div className="aspect-square w-full overflow-hidden bg-black/40">
+      {/* Imagem do NFT com Botão de Favoritar */}
+      <div className="bg-kurio-surface border border-kurio-border p-4 flex flex-col gap-4 relative">
+        <div className="relative aspect-square w-full overflow-hidden bg-black/40">
           <img src={nft.image} alt={nft.name} className="w-full h-full object-cover" />
+          <div className="absolute top-3 right-3 z-10">
+            <FavoriteButton nftId={nft.id} className="w-10 h-10 shadow-lg" />
+          </div>
         </div>
         <div className="flex items-center justify-between text-xs text-kurio-text-secondary pt-2">
           <span>Contrato: {nft.contractAddress.slice(0, 10)}...</span>
