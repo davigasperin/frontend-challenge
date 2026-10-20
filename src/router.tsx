@@ -33,8 +33,14 @@ import { PromosAndBlogSection } from "@/components/home/PromosAndBlogSection"
 const rootRoute = createRootRoute({
   component: () => (
     <div className="min-h-screen flex flex-col bg-kurio-bg text-kurio-text-primary font-mono selection:bg-kurio-accent selection:text-kurio-bg pb-16 md:pb-0">
+      <a
+        href="#conteudo-principal"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-kurio-accent focus:text-kurio-bg focus:px-4 focus:py-2 focus:font-bold focus:outline-none focus:ring-2 focus:ring-kurio-accent focus:ring-offset-2 focus:ring-offset-kurio-bg"
+      >
+        Pular para o conteúdo principal
+      </a>
       <Header />
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-8">
+      <main id="conteudo-principal" tabIndex={-1} className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-8">
         <Outlet />
       </main>
       <Footer />
@@ -123,6 +129,9 @@ function CatalogueView() {
             <img
               src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&auto=format&fit=crop&q=80"
               alt="Emerald Ape #042"
+              width="384"
+              height="384"
+              fetchPriority="high"
               className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
             />
             <span className="absolute top-2 right-2 bg-kurio-bg/90 border border-kurio-border px-2 py-1 text-[10px] text-kurio-accent">
@@ -314,7 +323,7 @@ function NFTDetailView() {
       {/* Imagem do NFT com Botão de Favoritar */}
       <div className="bg-kurio-surface border border-kurio-border p-4 flex flex-col gap-4 relative">
         <div className="relative aspect-square w-full overflow-hidden bg-black/40">
-          <img src={nft.image} alt={nft.name} className="w-full h-full object-cover" />
+          <img src={nft.image} alt={nft.name} width="600" height="600" fetchPriority="high" className="w-full h-full object-cover" />
           <div className="absolute top-3 right-3 z-10">
             <FavoriteButton nftId={nft.id} className="w-10 h-10 shadow-lg" />
           </div>
@@ -501,7 +510,7 @@ function CartView() {
                 key={`${item.nftId}-${item.editionNumber}`}
                 className="flex items-center gap-4 p-4 bg-kurio-surface border border-kurio-border"
               >
-                <img src={item.image} alt={item.name} className="w-20 h-20 object-cover bg-black/40 border border-kurio-border" />
+                <img src={item.image} alt={item.name} width="80" height="80" loading="lazy" className="w-20 h-20 object-cover bg-black/40 border border-kurio-border" />
                 <div className="flex-1 flex flex-col gap-1">
                   <span className="text-[11px] text-kurio-text-muted uppercase">{item.collection}</span>
                   <h3 className="text-sm font-bold text-kurio-text-primary">{item.name}</h3>
@@ -977,6 +986,8 @@ function ProfileView() {
           <img
             src={user.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"}
             alt={user.name}
+            width="80"
+            height="80"
             className="w-20 h-20 rounded-full object-cover border-2 border-kurio-accent bg-black/40"
           />
           <div className="flex flex-col gap-1">
@@ -1123,7 +1134,7 @@ function ProfileView() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {mockDb.getNFTs().slice(0, 3).map((nft) => (
               <div key={nft.id} className="bg-kurio-surface border border-kurio-border p-3 flex flex-col gap-2">
-                <img src={nft.image} alt={nft.name} className="aspect-square w-full object-cover bg-black/40" />
+                <img src={nft.image} alt={nft.name} width="200" height="200" loading="lazy" className="aspect-square w-full object-cover bg-black/40" />
                 <span className="text-[10px] text-kurio-text-muted uppercase">{nft.collection}</span>
                 <span className="text-xs font-bold text-kurio-text-primary">{nft.name}</span>
                 <Badge variant="outline" className="text-[9px] w-fit">Edição 1/100</Badge>

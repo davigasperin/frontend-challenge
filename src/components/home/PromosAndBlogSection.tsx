@@ -83,6 +83,8 @@ export function PromosAndBlogSection() {
                 <img
                   src={post.image}
                   alt={post.title}
+                  width="400"
+                  height="225"
                   loading="lazy"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />

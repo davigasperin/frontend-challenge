@@ -35,6 +35,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^9.21.0",
     "@mswjs/socket.io-binding": "^0.2.0",
     "@playwright/test": "^1.50.1",
@@ -47,6 +48,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^15.15.0",
+    "lighthouse": "^13.5.0",
     "msw": "^2.7.3",
     "tailwindcss": "^4.0.9",
     "typescript": "~5.7.3",
