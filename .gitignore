@@ -9,6 +9,10 @@ dist-ssr/
 .planning/
 README.md
 
+# Testes e relatórios Playwright
+test-results/
+playwright-report/
+
 # Logs e ambiente
 npm-debug.log*
 yarn-debug.log*

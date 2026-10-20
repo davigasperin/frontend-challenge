@@ -60,8 +60,7 @@ export function useToggleFavorite() {
     onMutate: async (nftId: string) => {
       await queryClient.cancelQueries({ queryKey: ["favorites"] })
       const previous = queryClient.getQueryData<string[]>(["favorites"])
-      queryClient.setQueryData<string[]>(["favorites"], (old) => {
-        if (!old) return old
+      queryClient.setQueryData<string[]>(["favorites"], (old = []) => {
         return old.includes(nftId) ? old.filter((x) => x !== nftId) : [...old, nftId]
       })
       return { previous }
