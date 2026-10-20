@@ -1,8 +1,8 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router"
+import { Link, useRouterState } from "@tanstack/react-router"
 import { KurioLogo } from "@/components/common/KurioLogo"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingBag, User as UserIcon, Search, Heart } from "lucide-react"
+import { ShoppingBag, User as UserIcon, Search } from "lucide-react"
 import { mockDb } from "@/mocks/db"
 import { useState, useEffect } from "react"
 import { AuthModal } from "@/components/common/AuthModal"
@@ -10,7 +10,6 @@ import { useCartQuery } from "@/hooks/useCart"
 
 export function Header() {
   const routerState = useRouterState()
-  const navigate = useNavigate()
   const { data: cartData } = useCartQuery()
   const [currentUser, setCurrentUser] = useState(mockDb.getCurrentUser())
   const [authOpen, setAuthOpen] = useState(false)

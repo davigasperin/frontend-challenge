@@ -17,12 +17,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { mockDb } from "@/mocks/db"
 import { formatEth } from "@/lib/utils"
 import { useState, useEffect } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { z } from "zod"
 import { MobileTabBar } from "@/components/common/MobileTabBar"
 import { useCatalogueQuery, useNFTDetailQuery } from "@/hooks/useNFTs"
 import { useCartQuery, useAddToCart, useUpdateCartQuantity, useRemoveFromCart, useApplyCoupon, useRemoveCoupon } from "@/hooks/useCart"
-import { realtimeClient, NFTUpdatedPayload } from "@/lib/realtime"
+import { useWalletsQuery, useOrderQuery, useCreateOrder } from "@/hooks/useOrders"
+import { realtimeClient, NFTUpdatedPayload, OrderUpdatedPayload } from "@/lib/realtime"
 import { FavoriteButton } from "@/components/nft/FavoriteButton"
 import { NFTGridSkeleton, NFTDetailSkeleton } from "@/components/nft/NFTSkeletons"
 import { PromosAndBlogSection } from "@/components/home/PromosAndBlogSection"
@@ -629,11 +631,22 @@ const checkoutRoute = createRoute({
 function CheckoutView() {
   const navigate = useNavigate()
   const user = mockDb.getCurrentUser()
-  const wallets = user ? mockDb.getWallets(user.id) : []
-  const quote = mockDb.calculateQuote()
+  const { data: walletsData, isLoading: isLoadingWallets } = useWalletsQuery()
+  const { data: cartData } = useCartQuery()
+  const createOrderMutation = useCreateOrder()
+
+  const wallets = walletsData || (user ? mockDb.getWallets(user.id) : [])
+  const quote = cartData?.quote || mockDb.calculateQuote()
+
   const [selectedWallet, setSelectedWallet] = useState(wallets[0]?.address || "")
-  const [isProcessing, setIsProcessing] = useState(false)
+  const [selectedNetwork, setSelectedNetwork] = useState<string>("Ethereum")
   const [checkoutError, setCheckoutError] = useState("")
+
+  useEffect(() => {
+    if (!selectedWallet && wallets.length > 0) {
+      setSelectedWallet(wallets[0].address)
+    }
+  }, [wallets, selectedWallet])
 
   // Guard de rota privada: se não estiver autenticado, orienta para login
   if (!user) {
@@ -650,27 +663,28 @@ function CheckoutView() {
     )
   }
 
-  const handleConfirmOrder = async () => {
+  const handleConfirmOrder = () => {
     if (!selectedWallet) {
       setCheckoutError("Selecione uma carteira para assinar a transação.")
       return
     }
 
-    setIsProcessing(true)
     setCheckoutError("")
 
-    try {
-      const res = await mockDb.createOrder(
-        `idemp-${Date.now()}`,
-        selectedWallet,
-        "Ethereum"
-      )
-      navigate({ to: "/checkout/receipt", search: { orderId: res.order.id } })
-    } catch (err: any) {
-      setCheckoutError(err?.message || "Falha na transação.")
-    } finally {
-      setIsProcessing(false)
-    }
+    createOrderMutation.mutate(
+      {
+        walletAddress: selectedWallet,
+        network: selectedNetwork,
+      },
+      {
+        onSuccess: (order) => {
+          navigate({ to: "/checkout/receipt", search: { orderId: order.id } })
+        },
+        onError: (err: any) => {
+          setCheckoutError(err?.message || "Falha na transação.")
+        },
+      }
+    )
   }
 
   return (
@@ -679,7 +693,12 @@ function CheckoutView() {
 
       <div className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-4">
         <h2 className="text-sm font-bold uppercase text-kurio-accent">1. Carteira de Pagamento</h2>
-        {wallets.length === 0 ? (
+        {isLoadingWallets ? (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+          </div>
+        ) : wallets.length === 0 ? (
           <p className="text-xs text-kurio-text-secondary">Nenhuma carteira conectada. Adicione uma carteira para continuar.</p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -712,7 +731,28 @@ function CheckoutView() {
       </div>
 
       <div className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-3 text-xs">
-        <h2 className="text-sm font-bold uppercase text-kurio-accent">2. Total da Transação</h2>
+        <h2 className="text-sm font-bold uppercase text-kurio-accent">2. Rede Blockchain</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {["Ethereum", "Polygon", "Arbitrum", "Optimism"].map((net) => (
+            <button
+              key={net}
+              type="button"
+              onClick={() => setSelectedNetwork(net)}
+              className={`p-3 border text-left transition-colors flex items-center justify-between ${
+                selectedNetwork === net
+                  ? "border-kurio-accent bg-kurio-accent/10 text-kurio-text-primary font-bold"
+                  : "border-kurio-border text-kurio-text-secondary hover:border-kurio-accent/60"
+              }`}
+            >
+              <span>{net}</span>
+              {selectedNetwork === net && <span className="text-kurio-accent">●</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-6 bg-kurio-surface border border-kurio-border flex flex-col gap-3 text-xs">
+        <h2 className="text-sm font-bold uppercase text-kurio-accent">3. Total da Transação</h2>
         <div className="flex justify-between"><span>Subtotal:</span><span>{quote.subtotalEth} ETH</span></div>
         <div className="flex justify-between"><span>Taxa de Gas:</span><span>{quote.gasFeeEth} ETH</span></div>
         <div className="flex justify-between pt-2 border-t border-kurio-border font-bold text-sm text-kurio-text-primary">
@@ -725,11 +765,11 @@ function CheckoutView() {
       <Button
         size="lg"
         variant="default"
-        disabled={isProcessing || !selectedWallet}
+        disabled={createOrderMutation.isPending || !selectedWallet}
         onClick={handleConfirmOrder}
         className="w-full"
       >
-        {isProcessing ? "Confirmando na Blockchain..." : "Assinar & Pagar com Carteira"}
+        {createOrderMutation.isPending ? "Confirmando na Blockchain..." : "Assinar & Pagar com Carteira"}
       </Button>
     </div>
   )
@@ -749,7 +789,30 @@ const receiptRoute = createRoute({
 
 function ReceiptView() {
   const search = useSearch({ from: "/checkout/receipt" })
-  const order = search.orderId ? mockDb.getOrderById(search.orderId) : undefined
+  const queryClient = useQueryClient()
+  const { data: orderData, isLoading } = useOrderQuery(search.orderId)
+  const order = orderData || (search.orderId ? mockDb.getOrderById(search.orderId) : undefined)
+
+  useEffect(() => {
+    const handleOrderUpdated = (payload: OrderUpdatedPayload) => {
+      if (payload.orderId === search.orderId) {
+        queryClient.invalidateQueries({ queryKey: ["order", search.orderId] })
+      }
+    }
+
+    const unsubscribe = realtimeClient.on<OrderUpdatedPayload>("order.updated", handleOrderUpdated)
+    return unsubscribe
+  }, [search.orderId, queryClient])
+
+  if (isLoading) {
+    return (
+      <div className="max-w-xl mx-auto py-12 flex flex-col items-center gap-4">
+        <Skeleton className="w-16 h-16 rounded-full" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-xl mx-auto py-8 flex flex-col items-center gap-6 text-center">
@@ -761,8 +824,14 @@ function ReceiptView() {
         Sua compra foi validada e cunhada na blockchain Ethereum. Os colecionáveis já foram transferidos para sua carteira.
       </p>
 
-      {order && (
+      {order ? (
         <div className="w-full p-4 bg-kurio-surface border border-kurio-border text-left text-xs flex flex-col gap-2">
+          <div className="flex justify-between items-center pb-2 border-b border-kurio-border">
+            <span className="text-kurio-text-muted">Status:</span>
+            <Badge variant="outline" className="text-emerald-400 border-emerald-500/40">
+              {order.status.toUpperCase()}
+            </Badge>
+          </div>
           <div className="flex justify-between">
             <span className="text-kurio-text-muted">ID do Pedido:</span>
             <span className="font-bold text-kurio-text-primary">{order.id}</span>
@@ -772,10 +841,20 @@ function ReceiptView() {
             <span className="text-kurio-accent truncate max-w-[200px]">{order.transactionHash}</span>
           </div>
           <div className="flex justify-between">
+            <span className="text-kurio-text-muted">Rede:</span>
+            <span className="font-bold text-kurio-text-primary">{order.network}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-kurio-text-muted">Carteira:</span>
+            <span className="text-kurio-text-secondary truncate max-w-[200px]">{order.walletAddress}</span>
+          </div>
+          <div className="flex justify-between pt-2 border-t border-kurio-border">
             <span className="text-kurio-text-muted">Total Pago:</span>
             <span className="font-bold text-kurio-text-primary">{order.totalEth} ETH</span>
           </div>
         </div>
+      ) : (
+        <p className="text-xs text-kurio-text-secondary">Nenhum pedido encontrado para o identificador fornecido.</p>
       )}
 
       <div className="flex gap-4 pt-4">

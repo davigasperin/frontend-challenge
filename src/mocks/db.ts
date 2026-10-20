@@ -4,6 +4,7 @@ import {
   NFTItem,
   CartItem,
   Order,
+  OrderItem,
   ScenarioConfig,
   Coupon
 } from "@/types"

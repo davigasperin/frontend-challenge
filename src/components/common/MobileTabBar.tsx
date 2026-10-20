@@ -34,7 +34,7 @@ export function MobileTabBar() {
           <Link
             key={item.label}
             to={item.path as any}
-            search={item.search}
+            search={item.search as any}
             className={`flex flex-col items-center gap-1 p-1 text-[10px] font-mono transition-colors relative ${
               isActive ? "text-kurio-accent font-bold" : "text-kurio-text-muted hover:text-kurio-text-primary"
             }`}
